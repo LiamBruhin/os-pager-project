@@ -1,0 +1,11 @@
+[package]
+name = "rs"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "mm_rust_lib"
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+
