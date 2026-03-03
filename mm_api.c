@@ -61,8 +61,7 @@ int swap_enabled = 0;
 struct phys_page_entry {
 	// Information about what is in this physical page.
     uint8_t occupied : 1;
-
-
+    uint8_t isPageTable: 1;
 };
 struct phys_page_entry phys_pages[MM_PHYSICAL_PAGES];
 
@@ -97,41 +96,111 @@ void MM_SwapOn() {
 // permission bits of the mapping to adhere to the new 'writable' setting.
 char* MM_Map(int pid, uint32_t address, int writable) {	
     DEBUG("%d\n", MM_PHYSICAL_MEMORY_SIZE_BYTES);
-
-	uint32_t virtual_page = address >> MM_PAGE_SIZE_BITS;
-	struct process *const proc = &processes[pid];
+    DEBUG("%d\n", MM_NUM_PTES);
 
 	static char message[128];
 
+	uint32_t virtual_page = address >> MM_PAGE_SIZE_BITS;
+    if(virtual_page >= MM_NUM_PTES) {
+        sprintf(message, "Invalid map address");
+        return message;
+    }
+
+	struct process *const proc = &processes[pid];
+
+
     if(!proc->page_table_exists) {
+        // NOTE: Allocate a new page table in physical memory for this process if one doesn't exist
         int free_page = find_free_phys_page();
-        if(free_page == -1) sprintf(message, "No space for page table");
+        if(free_page == -1) {
+            sprintf(message, "No space for page table"); // TODO: Swap
+            return message;
+        }
 
         proc->page_table = (struct page_table_entry *)&phys_mem[MM_PAGE_SIZE_BYTES * free_page];
-
+        proc->page_table_exists = 1;
+        phys_pages[free_page].occupied = 1;
+        phys_pages[free_page].isPageTable = 1;
     }
     
     struct page_table_entry *pte = &proc->page_table[virtual_page];
 
     if(!pte->valid) {
+        // NOTE: Allocate a new physical page if one does not yet exist
+        int free_page = find_free_phys_page();
+        if(free_page == -1) { 
+            sprintf(message, "No space for data page"); // TODO: Swap
+            return message;
+        }
 
+        pte->PFN = free_page;
+        pte->valid = 1;
+        pte->swapped = 0;
+        phys_pages[free_page].occupied = 1;
     }
-    
-    
 
+    pte->writable = (writable != 0);
 
-	sprintf(message, "unimplemented");
-	return message;
+	return NULL;
 }
 
 void free_string(const char* str) {
 	// MM_Map returns a static buffer, not actually leaked.
 }
 
+// Load a byte from the specified address.
+// 0 is returned for a valid load operation. If the page is not mapped,
+// and AutoMap is not enabled, return -1.
 int MM_LoadByte(int pid, uint32_t address, uint8_t *value) {
+    uint32_t virtual_page = address >> MM_PAGE_SIZE_BITS;
+    uint32_t offset = address & MM_PAGE_OFFSET_MASK;
+
+    struct process *const proc = &processes[pid];
+
+    if(proc->page_table_exists) {
+        struct page_table_entry *pte = (struct page_table_entry *)&proc->page_table[virtual_page];
+        if(pte->valid) {
+            // VPN -> PFN
+            uint32_t pfn = pte->PFN;
+
+            // Calculate physical adress
+            uint32_t physical_address = (pfn * MM_PAGE_SIZE_BYTES) + offset;
+
+            // Load byte from physical memory
+            *value = phys_mem[physical_address];
+
+            return 0;
+        }
+    }
+
 	return -1;
 }
 
+// Store a byte in the specified address. 
+// 0 is returned for a valid store operation. If the page is not mapped,
+// is mapped read-only, or AutoMap is not enabled, return -1.
+// The memory should be modified ONLY if the return value is zero.
 int MM_StoreByte(int pid, uint32_t address, uint8_t value) {
+    uint32_t virtual_page = address >> MM_PAGE_SIZE_BITS;
+    uint32_t offset = address & MM_PAGE_OFFSET_MASK;
+
+    struct process *const proc = &processes[pid];
+
+    if(proc->page_table_exists) {
+        struct page_table_entry *pte = (struct page_table_entry *)&proc->page_table[virtual_page];
+        if(pte->valid && pte->writable) {
+            // VPN -> PFN
+            uint32_t pfn = pte->PFN;
+
+            // Calculate physical adress
+            uint32_t physical_address = (pfn * MM_PAGE_SIZE_BYTES) + offset;
+
+            // Store byte into physical memory
+            phys_mem[physical_address] = value;
+
+            return 0;
+        }
+    }
+
 	return -1;
 }	
