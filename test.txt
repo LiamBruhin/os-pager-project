@@ -1,0 +1,211 @@
+========== Test 0.0 start: Map only, r/o
+error: unimplemented
+mm_test.cc:54: mr (187650647941368) != nullptr (0)
+========== Test 0.0 end: FAILED output in tests.out/0.0.*
+
+========== Test 0.1 start: Map only, r/w
+error: unimplemented
+mm_test.cc:65: mr (187650647941368) != nullptr (0)
+========== Test 0.1 end: FAILED output in tests.out/0.1.*
+
+========== Test 0.2 start: Map 3 pages pid0 r/o
+error: unimplemented
+error: unimplemented
+error: unimplemented
+mm_test.cc:80: mr1 (187650647941368) != nullptr (0)
+========== Test 0.2 end: FAILED output in tests.out/0.2.*
+
+========== Test 0.3 start: Map 3 pages pid0 r/w
+error: unimplemented
+error: unimplemented
+error: unimplemented
+mm_test.cc:97: mr1 (187650647941368) != nullptr (0)
+========== Test 0.3 end: FAILED output in tests.out/0.3.*
+
+========== Test 0.4 start: Map 4 pages, 4th should fail
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+mm_test.cc:116: mr1 (187650647941368) != nullptr (0)
+========== Test 0.4 end: FAILED output in tests.out/0.4.*
+
+========== Test 0.5 start: Map a page and load from it
+error: unimplemented
+mm_test.cc:131: MM_LoadByte(0, addrN(2,2), &value) != 0
+========== Test 0.5 end: FAILED output in tests.out/0.5.*
+
+========== Test 0.6 start: Map a page and write to it
+error: unimplemented
+mm_test.cc:142: MM_StoreByte(0, addrN(2,2), value) != 0
+========== Test 0.6 end: FAILED output in tests.out/0.6.*
+
+========== Test 0.7 start: Invalid Map address should fail
+error: unimplemented
+========== Test 0.7 end: PASSED output in tests.out/0.7.*
+
+========== Test 0.8 start: Read from an unmapped page should fail
+========== Test 0.8 end: PASSED output in tests.out/0.8.*
+
+========== Test 0.9 start: Write to unmapped page should fail
+========== Test 0.9 end: PASSED output in tests.out/0.9.*
+
+========== Test 0.10 start: Write to a read-only page should fail
+error: unimplemented
+========== Test 0.10 end: PASSED output in tests.out/0.10.*
+
+========== Test 0.11 start: Write to a read-write page should retain value
+error: unimplemented
+mm_test.cc:193: rc != 0
+========== Test 0.11 end: FAILED output in tests.out/0.11.*
+
+========== Test 0.12 start: Remap a read-only page to read-write should fail then succeed
+error: unimplemented
+error: unimplemented
+mm_test.cc:210: MM_StoreByte(0, addrN(2,2), value) != 0
+========== Test 0.12 end: FAILED output in tests.out/0.12.*
+
+========== Test 0.13 start: Writing every byte in a page should retain values
+error: unimplemented
+mm_test.cc:226: MM_StoreByte(0, addrN(2,offset), value) != 0
+========== Test 0.13 end: FAILED output in tests.out/0.13.*
+
+========== Test 0.14 start: Values written to 3 different pages should retain value
+error: unimplemented
+error: unimplemented
+error: unimplemented
+mm_test.cc:250: MM_StoreByte(0, addrN(2,2), value1) != 0
+========== Test 0.14 end: FAILED output in tests.out/0.14.*
+
+========== Test 0.15 start: Writes across 2 contiguous pages should retain values
+error: unimplemented
+error: unimplemented
+mm_test.cc:274: MM_StoreByte(0, addrN(3,offset), value) != 0
+========== Test 0.15 end: FAILED output in tests.out/0.15.*
+
+========== Test 1.0 start: Writes and reads to 4 pages of a single pid should return correct values
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+mm_test.cc:320: MM_StoreByte(0, addrN(1,5), values[0]) != 0
+========== Test 1.0 end: FAILED output in tests.out/1.0.*
+
+========== Test 1.1 start: Writes and reads to 6 pages of a single pid should return correct values
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+mm_test.cc:364: MM_StoreByte(0, addrN(1,5), values[0]) != 0
+========== Test 1.1 end: FAILED output in tests.out/1.1.*
+
+========== Test 1.2 start: Writes through a lot of 1 pid should all come back
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+mm_test.cc:400: MM_StoreByte(0, addr, value) != 0
+========== Test 1.2 end: FAILED output in tests.out/1.2.*
+
+========== Test 1.3 start: STRESS TEST
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+mm_test.cc:426: MM_StoreByte(0, addr, value) != 0
+========== Test 1.3 end: FAILED output in tests.out/1.3.*
+
+========== Test 2.0 start: Values written to two different pids should retain value
+error: unimplemented
+error: unimplemented
+mm_test.cc:454: MM_StoreByte(0, addrN(5,2), value0) != 0
+========== Test 2.0 end: FAILED output in tests.out/2.0.*
+
+========== Test 2.1 start: Writes through a lot of many pids should all come back
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+mm_test.cc:477: MM_StoreByte(pid, offset, value) != 0
+========== Test 2.1 end: FAILED output in tests.out/2.1.*
+
+========== Test 2.2 start: Multi-pid STRESS TEST
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+error: unimplemented
+mm_test.cc:507: MM_StoreByte(pid, addr, value) != 0
+========== Test 2.2 end: FAILED output in tests.out/2.2.*
+
+== Tests for section: Section 1: (20 pts) Correct implementation of the map, load, and store commands.
+====== Test 0.0 FAILED(1 pts): Map only, r/o
+====== Test 0.1 FAILED(1 pts): Map only, r/w
+====== Test 0.2 FAILED(1 pts): Map 3 pages pid0 r/o
+====== Test 0.3 FAILED(1 pts): Map 3 pages pid0 r/w
+====== Test 0.4 FAILED(1 pts): Map 4 pages, 4th should fail
+====== Test 0.5 FAILED(1 pts): Map a page and load from it
+====== Test 0.6 FAILED(1 pts): Map a page and write to it
+====== Test 0.7 PASSED(1 pts): Invalid Map address should fail
+====== Test 0.8 PASSED(1 pts): Read from an unmapped page should fail
+====== Test 0.9 PASSED(1 pts): Write to unmapped page should fail
+====== Test 0.10 PASSED(1 pts): Write to a read-only page should fail
+====== Test 0.11 FAILED(1 pts): Write to a read-write page should retain value
+====== Test 0.12 FAILED(2 pts): Remap a read-only page to read-write should fail then succeed
+====== Test 0.13 FAILED(2 pts): Writing every byte in a page should retain values
+====== Test 0.14 FAILED(2 pts): Values written to 3 different pages should retain value
+====== Test 0.15 FAILED(2 pts): Writes across 2 contiguous pages should retain values
+== Tests scored 4 / 20
+== Tests for section: Section 2: (20 pts) Pages are correctly swapped to and from disk.
+====== Test 1.0 FAILED(8 pts): Writes and reads to 4 pages of a single pid should return correct values
+====== Test 1.1 FAILED(4 pts): Writes and reads to 6 pages of a single pid should return correct values
+====== Test 1.2 FAILED(4 pts): Writes through a lot of 1 pid should all come back
+====== Test 1.3 FAILED(4 pts): STRESS TEST
+== Tests scored 0 / 20
+== Tests for section: Section 2: (15 pts) Memory manager supports requests from multiple processes residing in memory concurrently.
+====== Test 2.0 FAILED(10 pts): Values written to two different pids should retain value
+====== Test 2.1 FAILED(3 pts): Writes through a lot of many pids should all come back
+====== Test 2.2 FAILED(2 pts): Multi-pid STRESS TEST
+== Tests scored 0 / 15
+== Total scored 4 / 55

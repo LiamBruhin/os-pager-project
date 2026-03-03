@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -21,11 +22,10 @@ uint8_t phys_mem[MM_PHYSICAL_MEMORY_SIZE_BYTES];
 
 // A simple page table entry.
 struct page_table_entry {
-	// We need to track:
-	// - physical page number
-	// - permissions
-	// - if this is valid
-	// - if this is swapped
+    uint16_t PFN : 2;
+    uint16_t writable : 1;
+    uint16_t valid : 1;
+    uint16_t swapped : 1;
 };
 
 // Per-process metadata.
@@ -60,9 +60,20 @@ int swap_enabled = 0;
 // to eject.
 struct phys_page_entry {
 	// Information about what is in this physical page.
-	uint8_t valud : 1;
+    uint8_t occupied : 1;
+
+
 };
 struct phys_page_entry phys_pages[MM_PHYSICAL_PAGES];
+
+int find_free_phys_page() {
+    for(int i = 0; i < MM_PHYSICAL_PAGES; i++) {
+        if(!phys_pages[i].occupied){
+            return i;
+        }
+    }
+    return -1;
+}
 
 // Helper that returns the address in phys_mem that the phys_page metadata refers to.
 void *phys_mem_addr_for_phys_page_entry(struct phys_page_entry *phys_page) {
@@ -78,12 +89,36 @@ void MM_SwapOn() {
 	swap_enabled = 1;
 }
 
+// Map a page of memory for the requested process.
+// If 'writable' is non-zero, the page is mapped read/write. Otherwise, the
+// page is mapped read-only. 'address' is the virtual address requested,
+// not the page number. If the page corresponding to 'address' is unmapped,
+// create a pagetable entry. If the page is already mapped, update the
+// permission bits of the mapping to adhere to the new 'writable' setting.
 char* MM_Map(int pid, uint32_t address, int writable) {	
-	CHECK(sizeof(struct page_table_entry) <= MM_MAX_PTE_SIZE_BYTES);
+    DEBUG("%d\n", MM_PHYSICAL_MEMORY_SIZE_BYTES);
+
 	uint32_t virtual_page = address >> MM_PAGE_SIZE_BITS;
 	struct process *const proc = &processes[pid];
 
 	static char message[128];
+
+    if(!proc->page_table_exists) {
+        int free_page = find_free_phys_page();
+        if(free_page == -1) sprintf(message, "No space for page table");
+
+        proc->page_table = (struct page_table_entry *)&phys_mem[MM_PAGE_SIZE_BYTES * free_page];
+
+    }
+    
+    struct page_table_entry *pte = &proc->page_table[virtual_page];
+
+    if(!pte->valid) {
+
+    }
+    
+    
+
 
 	sprintf(message, "unimplemented");
 	return message;
