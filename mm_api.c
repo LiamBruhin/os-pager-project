@@ -1,8 +1,10 @@
 #include <stdint.h>
+#include <bits/types/FILE.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "mm_api.h"
@@ -62,6 +64,8 @@ struct phys_page_entry {
 	// Information about what is in this physical page.
     uint8_t occupied : 1;
     uint8_t isPageTable: 1;
+    uint8_t pid : 2;
+    uint8_t vpn : 3;
 };
 struct phys_page_entry phys_pages[MM_PHYSICAL_PAGES];
 
@@ -83,9 +87,72 @@ void *phys_mem_addr_for_phys_page_entry(struct phys_page_entry *phys_page) {
 void MM_SwapOn() {
 	if (!swap_enabled) {
 		// Initialize swap files.
+        for(int i = 0; i < MM_MAX_PROCESSES; i++) {
+            char swap_name[128];
+            sprintf(swap_name, "swap_%d.bin", i);
+            processes[i].swap_file = fopen(swap_name, "wb+");
+        }
 	}
 
 	swap_enabled = 1;
+}
+
+// Evict a page from physical memory and return the PFN that is now open
+uint32_t evict() {
+    static uint8_t victim = 0;
+
+    // NOTE: Avoid Evicting page tables for now
+    while(phys_pages[victim].isPageTable) {
+        victim = (victim + 1) % MM_PHYSICAL_PAGES;
+    }
+    uint32_t evicted_pfn = victim; 
+
+    struct phys_page_entry *phys_page = &phys_pages[victim];
+    struct process *victim_proc = &processes[phys_page->pid];
+
+    void *phys_mem_addr = phys_mem_addr_for_phys_page_entry(phys_page);
+
+    FILE *swapFile = victim_proc->swap_file;
+
+    // Seek to the correct slot in the swapfile
+    fseek(swapFile, MM_PAGE_SIZE_BYTES * phys_page->vpn, 0);
+
+    // Write the evicted page to the swapfile
+    fwrite(phys_mem_addr, MM_PAGE_SIZE_BYTES, 1, swapFile);
+
+    struct page_table_entry *pte = &victim_proc->page_table[phys_page->vpn];
+    pte->swapped = 1;
+    pte->valid = 0;
+
+    victim = (victim + 1) % MM_PHYSICAL_PAGES;
+
+    return evicted_pfn;
+}
+
+void *swap(int pid, uint32_t virtual_page) {
+
+    int free_page = find_free_phys_page();
+    if(free_page == -1) {
+        free_page = evict();
+    }
+
+    void *pt_addr = &phys_mem[MM_PAGE_SIZE_BYTES * free_page];
+    struct process *proc = &processes[pid];
+    struct page_table_entry *pte = &proc->page_table[virtual_page];
+
+    FILE *swap = proc->swap_file;
+
+    fseek(swap, MM_PAGE_SIZE_BYTES * virtual_page, 0);
+    fread(pt_addr, MM_PAGE_SIZE_BYTES, 1, swap);
+
+    pte->PFN = free_page;
+    pte->valid = 1;
+    pte->swapped = 0;
+    phys_pages[free_page].occupied = 1;
+    phys_pages[free_page].isPageTable = 0;
+    phys_pages[free_page].pid = pid;
+    phys_pages[free_page].vpn = virtual_page;
+    return pt_addr;
 }
 
 // Map a page of memory for the requested process.
@@ -108,19 +175,23 @@ char* MM_Map(int pid, uint32_t address, int writable) {
 
 	struct process *const proc = &processes[pid];
 
-
     if(!proc->page_table_exists) {
         // NOTE: Allocate a new page table in physical memory for this process if one doesn't exist
         int free_page = find_free_phys_page();
-        if(free_page == -1) {
-            sprintf(message, "No space for page table"); // TODO: Swap
+        if(free_page == -1 && swap_enabled) {
+            free_page = evict();
+        } else if(free_page == -1) {
+            sprintf(message, "No space for page table");
             return message;
         }
 
-        proc->page_table = (struct page_table_entry *)&phys_mem[MM_PAGE_SIZE_BYTES * free_page];
+        void *pt_addr = &phys_mem[MM_PAGE_SIZE_BYTES * free_page];
+        memset(pt_addr, 0, MM_PAGE_SIZE_BYTES); // NOTE: Clear to zero
+        proc->page_table = (struct page_table_entry *)pt_addr;
         proc->page_table_exists = 1;
         phys_pages[free_page].occupied = 1;
         phys_pages[free_page].isPageTable = 1;
+        phys_pages[free_page].pid = pid;
     }
     
     struct page_table_entry *pte = &proc->page_table[virtual_page];
@@ -128,7 +199,9 @@ char* MM_Map(int pid, uint32_t address, int writable) {
     if(!pte->valid) {
         // NOTE: Allocate a new physical page if one does not yet exist
         int free_page = find_free_phys_page();
-        if(free_page == -1) { 
+        if(free_page == -1 && swap_enabled) { 
+            free_page = evict();
+        } else if(free_page == -1) {
             sprintf(message, "No space for data page"); // TODO: Swap
             return message;
         }
@@ -137,6 +210,9 @@ char* MM_Map(int pid, uint32_t address, int writable) {
         pte->valid = 1;
         pte->swapped = 0;
         phys_pages[free_page].occupied = 1;
+        phys_pages[free_page].isPageTable = 0;
+        phys_pages[free_page].pid = pid;
+        phys_pages[free_page].vpn = virtual_page;
     }
 
     pte->writable = (writable != 0);
@@ -153,24 +229,34 @@ void free_string(const char* str) {
 // and AutoMap is not enabled, return -1.
 int MM_LoadByte(int pid, uint32_t address, uint8_t *value) {
     uint32_t virtual_page = address >> MM_PAGE_SIZE_BITS;
+    if(virtual_page >= MM_NUM_PTES) return -1;
+
     uint32_t offset = address & MM_PAGE_OFFSET_MASK;
 
     struct process *const proc = &processes[pid];
 
-    if(proc->page_table_exists) {
-        struct page_table_entry *pte = (struct page_table_entry *)&proc->page_table[virtual_page];
-        if(pte->valid) {
-            // VPN -> PFN
-            uint32_t pfn = pte->PFN;
+    if(!proc->page_table_exists) {
+        return -1;
+    }
 
-            // Calculate physical adress
-            uint32_t physical_address = (pfn * MM_PAGE_SIZE_BYTES) + offset;
+    struct page_table_entry *pte = &proc->page_table[virtual_page];
 
-            // Load byte from physical memory
-            *value = phys_mem[physical_address];
+    if(!pte->valid && pte->swapped) {
+        // NOTE: page fault
+        swap(pid, virtual_page);
+    }
 
-            return 0;
-        }
+    if(pte->valid) {
+        // VPN -> PFN
+        uint32_t pfn = pte->PFN;
+
+        // Calculate physical adress
+        uint32_t physical_address = (pfn * MM_PAGE_SIZE_BYTES) + offset;
+
+        // Load byte from physical memory
+        *value = phys_mem[physical_address];
+
+        return 0;
     }
 
 	return -1;
@@ -182,24 +268,33 @@ int MM_LoadByte(int pid, uint32_t address, uint8_t *value) {
 // The memory should be modified ONLY if the return value is zero.
 int MM_StoreByte(int pid, uint32_t address, uint8_t value) {
     uint32_t virtual_page = address >> MM_PAGE_SIZE_BITS;
+    if(virtual_page >= MM_NUM_PTES) return -1;
+
     uint32_t offset = address & MM_PAGE_OFFSET_MASK;
 
     struct process *const proc = &processes[pid];
 
-    if(proc->page_table_exists) {
-        struct page_table_entry *pte = (struct page_table_entry *)&proc->page_table[virtual_page];
-        if(pte->valid && pte->writable) {
-            // VPN -> PFN
-            uint32_t pfn = pte->PFN;
+    if(!proc->page_table_exists) {
+        return -1;
+    }
 
-            // Calculate physical adress
-            uint32_t physical_address = (pfn * MM_PAGE_SIZE_BYTES) + offset;
+    struct page_table_entry *pte = &proc->page_table[virtual_page];
+    if(!pte->valid && pte->swapped) {
+        // NOTE: page fault
+        swap(pid, virtual_page);
+    }
 
-            // Store byte into physical memory
-            phys_mem[physical_address] = value;
+    if(pte->valid && pte->writable) {
+        // VPN -> PFN
+        uint32_t pfn = pte->PFN;
 
-            return 0;
-        }
+        // Calculate physical adress
+        uint32_t physical_address = (pfn * MM_PAGE_SIZE_BYTES) + offset;
+
+        // Store byte into physical memory
+        phys_mem[physical_address] = value;
+
+        return 0;
     }
 
 	return -1;
